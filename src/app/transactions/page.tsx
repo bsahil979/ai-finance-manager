@@ -79,7 +79,7 @@ export default function TransactionsPage() {
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-50">
-      <div className="mx-auto max-w-5xl px-6 py-10">
+      <div className="w-full px-8 py-10">
         <h1 className="text-3xl font-semibold tracking-tight">
           Transactions
         </h1>
