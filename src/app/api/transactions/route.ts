@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db/mongo";
+import { getCurrentUser } from "@/lib/auth";
 
-// GET /api/transactions - list latest transactions for now (no auth yet)
+// GET /api/transactions - list transactions for current user
 export async function GET() {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const db = await getDb();
     const transactions = await db
       .collection("transactions")
-      .find({})
+      .find({ userId: user._id })
       .sort({ date: -1 })
       .limit(50)
       .toArray();

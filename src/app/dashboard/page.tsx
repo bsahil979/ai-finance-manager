@@ -11,6 +11,11 @@ type Overview = {
   monthExpense: number;
 };
 
+type SpendingBreakdown = {
+  merchant: string;
+  amount: number;
+};
+
 export default function DashboardPage() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -18,6 +23,8 @@ export default function DashboardPage() {
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [spendingBreakdown, setSpendingBreakdown] = useState<SpendingBreakdown[]>([]);
+  const [unreadAlerts, setUnreadAlerts] = useState(0);
 
   useEffect(() => {
     const load = async () => {
@@ -34,6 +41,32 @@ export default function DashboardPage() {
       }
     };
     load();
+
+    const loadBreakdown = async () => {
+      try {
+        const res = await fetch("/api/dashboard/spending-breakdown");
+        const data = await res.json();
+        if (res.ok && data.breakdown) {
+          setSpendingBreakdown(data.breakdown);
+        }
+      } catch (err) {
+        console.error("Failed to load spending breakdown", err);
+      }
+    };
+    loadBreakdown();
+
+    const loadAlerts = async () => {
+      try {
+        const res = await fetch("/api/alerts");
+        const data = await res.json();
+        if (res.ok && data.unreadCount !== undefined) {
+          setUnreadAlerts(data.unreadCount);
+        }
+      } catch (err) {
+        console.error("Failed to load alerts", err);
+      }
+    };
+    loadAlerts();
   }, []);
 
   const handleExplainSpending = async () => {
@@ -43,7 +76,10 @@ export default function DashboardPage() {
       const res = await fetch("/api/ai/explain-spending");
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Failed to get AI insight");
+        const errorMsg = data.error || data.details || "Failed to get AI insight";
+        console.error("API error:", data);
+        setAiError(errorMsg);
+        return;
       }
       if (data.message) {
         setAiInsight(data.message);
@@ -51,136 +87,178 @@ export default function DashboardPage() {
         setAiInsight(data.insight ?? "No insight returned.");
       }
     } catch (err) {
-      console.error(err);
-      setAiError(
-        "Could not generate AI explanation. Check your API key and try again.",
-      );
+      console.error("Fetch error:", err);
+      const errorMsg = err instanceof Error ? err.message : "Network error. Check your connection.";
+      setAiError(`Could not generate AI explanation: ${errorMsg}`);
     } finally {
       setAiLoading(false);
     }
   };
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(amount);
+  };
+
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-50">
-      <div className="w-full px-8 py-10">
-        <h1 className="text-3xl font-semibold tracking-tight">
-          Finance Overview
-        </h1>
-        <p className="mt-2 text-zinc-400">
-          High-level snapshot of your income, expenses, and this month&apos;s
-          activity.
-        </p>
+    <main className="p-8">
+        {/* Top Bar */}
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
+            <p className="mt-1 text-sm text-zinc-400">
+              Welcome back! Here&apos;s your financial overview.
+            </p>
+          </div>
+        </div>
 
         {loading && (
-          <p className="mt-6 text-sm text-zinc-400">Loading overview...</p>
+          <div className="flex items-center justify-center py-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-solid border-emerald-400 border-r-transparent"></div>
+          </div>
         )}
+
         {error && (
-          <p className="mt-6 text-sm text-red-400">
+          <div className="rounded-lg border border-red-800 bg-red-900/20 p-4 text-red-400">
             {error} Try importing some transactions first.
-          </p>
-        )}
-
-        {overview && !loading && !error && (
-          <div className="mt-8 grid gap-4 lg:grid-cols-3">
-            <StatCard
-              label="Net worth from imported data"
-              value={overview.net}
-              highlight={overview.net >= 0 ? "positive" : "negative"}
-            />
-            <StatCard
-              label="This month - income"
-              value={overview.monthIncome}
-              highlight="positive"
-            />
-            <StatCard
-              label="This month - expenses"
-              value={overview.monthExpense}
-              highlight="negative"
-            />
           </div>
         )}
 
         {overview && !loading && !error && (
-          <p className="mt-4 text-xs text-zinc-500">
-            Based on {overview.totalTransactions} imported transactions.
-          </p>
-        )}
+          <>
+            {/* Stats Cards */}
+            <div className="grid gap-6 mb-8 md:grid-cols-3">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+                <p className="text-sm text-zinc-400 mb-2">Net Worth</p>
+                <p
+                  className={`text-3xl font-bold ${
+                    overview.net >= 0 ? "text-emerald-400" : "text-red-400"
+                  }`}
+                >
+                  {formatCurrency(overview.net)}
+                </p>
+                <p className="mt-2 text-xs text-zinc-500">
+                  From {overview.totalTransactions} transactions
+                </p>
+              </div>
 
-        <section className="mt-10 max-w-3xl">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold tracking-tight">
-                AI explanation for this month
-              </h2>
-              <p className="text-sm text-zinc-400">
-                Let the model analyze your imported transactions and highlight
-                patterns and saving opportunities.
-              </p>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-zinc-400">This Month - Income</p>
+                  <span className="text-emerald-400">↑</span>
+                </div>
+                <p className="text-3xl font-bold text-emerald-400">
+                  {formatCurrency(overview.monthIncome)}
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-zinc-400">This Month - Expenses</p>
+                  <span className="text-red-400">↓</span>
+                </div>
+                <p className="text-3xl font-bold text-red-400">
+                  {formatCurrency(Math.abs(overview.monthExpense))}
+                </p>
+              </div>
             </div>
-            <button
-              type="button"
-              onClick={handleExplainSpending}
-              disabled={aiLoading}
-              className="inline-flex items-center justify-center rounded-md bg-emerald-400 px-4 py-2 text-xs font-semibold text-zinc-950 shadow-sm hover:bg-emerald-300 disabled:opacity-60"
-            >
-              {aiLoading ? "Thinking..." : "Explain my spending"}
-            </button>
-          </div>
 
-          <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-900 p-4 text-sm">
-            {aiError && <p className="text-red-400">{aiError}</p>}
-            {!aiError && aiLoading && (
-              <p className="text-zinc-400">
-                Analyzing this month&apos;s data with AI...
-              </p>
-            )}
-            {!aiError && !aiLoading && aiInsight && (
-              <div className="whitespace-pre-wrap text-zinc-100">
-                {aiInsight}
+            {/* Alerts Banner */}
+            {unreadAlerts > 0 && (
+              <div className="mb-8 rounded-xl border border-orange-800 bg-orange-900/20 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-orange-400">
+                      {unreadAlerts} unread alert{unreadAlerts !== 1 ? "s" : ""}
+                    </p>
+                    <p className="mt-1 text-xs text-orange-300/80">
+                      Check for upcoming renewals and unusual spending patterns.
+                    </p>
+                  </div>
+                  <a
+                    href="/alerts"
+                    className="inline-flex items-center justify-center rounded-md bg-orange-400 px-4 py-2 text-xs font-semibold text-zinc-950 shadow-sm hover:bg-orange-300 transition-colors"
+                  >
+                    View Alerts
+                  </a>
+                </div>
               </div>
             )}
-            {!aiError && !aiLoading && !aiInsight && (
-              <p className="text-zinc-500">
-                Click &quot;Explain my spending&quot; to generate a summary of
-                this month&apos;s income and expenses.
-              </p>
-            )}
-          </div>
-        </section>
-      </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Spending Breakdown */}
+              {spendingBreakdown.length > 0 && (
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+                  <h2 className="text-lg font-semibold mb-4">Top Spending by Merchant</h2>
+                  <div className="space-y-4">
+                    {spendingBreakdown.slice(0, 5).map((item, idx) => {
+                      const maxAmount = spendingBreakdown[0]?.amount || 1;
+                      const percentage = (item.amount / maxAmount) * 100;
+                      return (
+                        <div key={idx} className="space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-zinc-300">{item.merchant}</span>
+                            <span className="text-zinc-400 font-medium">
+                              {formatCurrency(item.amount)}
+                            </span>
+                          </div>
+                          <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-emerald-400 to-sky-400 rounded-full transition-all"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* AI Insights */}
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold">AI Insights</h2>
+                  <button
+                    type="button"
+                    onClick={handleExplainSpending}
+                    disabled={aiLoading}
+                    className="inline-flex items-center justify-center rounded-md bg-emerald-400 px-3 py-1.5 text-xs font-semibold text-zinc-950 shadow-sm hover:bg-emerald-300 disabled:opacity-60 transition-colors"
+                  >
+                    {aiLoading ? "Analyzing..." : "Get Insights"}
+                  </button>
+                </div>
+
+                <div className="min-h-[200px]">
+                  {aiError && (
+                    <div className="text-red-400 text-sm">
+                      <p className="font-medium">{aiError}</p>
+                    </div>
+                  )}
+                  {!aiError && aiLoading && (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="h-6 w-6 animate-spin rounded-full border-3 border-solid border-emerald-400 border-r-transparent"></div>
+                    </div>
+                  )}
+                  {!aiError && !aiLoading && aiInsight && (
+                    <div className="whitespace-pre-wrap text-sm text-zinc-300 leading-relaxed">
+                      {aiInsight}
+                    </div>
+                  )}
+                  {!aiError && !aiLoading && !aiInsight && (
+                    <div className="text-center py-8">
+                      <p className="text-zinc-500 text-sm mb-4">
+                        Click &quot;Get Insights&quot; to receive AI-powered analysis of your spending patterns.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
     </main>
   );
 }
-
-type StatCardProps = {
-  label: string;
-  value: number;
-  highlight?: "positive" | "negative";
-};
-
-function StatCard({ label, value, highlight }: StatCardProps) {
-  const formatted = value.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  });
-
-  const color =
-    highlight === "positive"
-      ? "text-emerald-400"
-      : highlight === "negative"
-        ? "text-red-400"
-        : "text-zinc-50";
-
-  return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-        {label}
-      </p>
-      <p className={`mt-2 text-2xl font-semibold ${color}`}>{formatted}</p>
-    </div>
-  );
-}
-
-
-

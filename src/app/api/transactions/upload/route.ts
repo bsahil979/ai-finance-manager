@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db/mongo";
+import { getCurrentUser } from "@/lib/auth";
 
 type RawCsvRow = {
   date?: string;
@@ -10,6 +11,11 @@ type RawCsvRow = {
 
 export async function POST(req: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const formData = await req.formData();
     const file = formData.get("file");
 
@@ -34,6 +40,7 @@ export async function POST(req: NextRequest) {
         if (Number.isNaN(amountNumber)) return null;
 
         return {
+          userId: user._id,
           date: new Date(row.date),
           amount: amountNumber,
           currency: "USD",

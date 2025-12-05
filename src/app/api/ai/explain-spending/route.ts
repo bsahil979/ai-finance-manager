@@ -6,15 +6,18 @@ import { getDb } from "@/lib/db/mongo";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
 
 export async function GET() {
-  if (!GEMINI_API_KEY) {
+  if (!GEMINI_API_KEY || GEMINI_API_KEY.trim() === "") {
     return NextResponse.json(
       {
         error:
-          "GEMINI_API_KEY is not set. Add it to your environment to enable AI insights.",
+          "GEMINI_API_KEY is not set. Add it to your .env file as GEMINI_API_KEY=your_key_here",
       },
       { status: 500 },
     );
   }
+  
+  // Log partial key for debugging (first 10 chars only)
+  console.log("Using Gemini API key:", GEMINI_API_KEY.substring(0, 10) + "...");
 
   try {
     const db = await getDb();
@@ -85,54 +88,76 @@ export async function GET() {
       .map(([merchant, amount]) => `${merchant}: ${amount.toFixed(2)}`)
       .join("\n");
 
-    const systemPrompt =
-      "You are a concise personal finance coach. You are given a summary of this month's transactions grouped by merchant. Explain in 3–5 short bullet points why this person's expenses look the way they do, call out any unusual patterns, and suggest 2–3 concrete actions to save money. Be friendly, practical, and avoid generic advice.";
-
-    const userContent = [
+    const prompt = [
+      "You are a concise personal finance coach. You are given a summary of transactions grouped by merchant.",
+      "Explain in 3–5 short bullet points why this person's expenses look the way they do, call out any unusual patterns, and suggest 2–3 concrete actions to save money.",
+      "Be friendly, practical, and avoid generic advice.",
+      "",
       `Month: ${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`,
       `Total income: ${totalIncome.toFixed(2)}`,
       `Total expenses: ${totalExpense.toFixed(2)}`,
       "",
       "Net per merchant (positive = income, negative = expense):",
       merchantLines,
-    ].join("\n\n");
+    ].join("\n");
 
-    // Gemini API uses API key as query parameter, not Bearer token
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: systemPrompt + "\n\n" + userContent },
-              ],
-            },
-          ],
-        }),
+    // Gemini API uses API key as query parameter
+    // Try gemini-pro first (most commonly available), then fallback to gemini-1.5-flash-latest
+    const modelName = "gemini-pro";
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+    
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+      }),
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Gemini API error:", response.status, errorText);
+      let errorJson;
+      try {
+        errorJson = JSON.parse(errorText);
+      } catch {
+        errorJson = { message: errorText };
+      }
+      
+      console.error("Gemini API error:", response.status, errorJson);
+      
+      // Return more helpful error message
+      const errorMessage = 
+        errorJson?.error?.message || 
+        errorJson?.message || 
+        errorText.substring(0, 300) ||
+        `API returned status ${response.status}`;
+      
       return NextResponse.json(
         { 
-          error: "Failed to get AI insight",
-          details: errorText.substring(0, 200) // Include first 200 chars for debugging
+          error: `Gemini API error: ${errorMessage}`,
+          details: errorText.substring(0, 500)
         },
         { status: 500 },
       );
     }
 
     const json = (await response.json()) as any;
-    const text =
-      json.candidates?.[0]?.content?.parts?.[0]?.text ??
-      "The AI did not return any content.";
+    
+    // Handle different possible response structures
+    let text = "The AI did not return any content.";
+    if (json.candidates?.[0]?.content?.parts?.[0]?.text) {
+      text = json.candidates[0].content.parts[0].text;
+    } else if (json.text) {
+      text = json.text;
+    } else {
+      console.error("Unexpected Gemini response format:", JSON.stringify(json, null, 2));
+    }
 
     return NextResponse.json({ insight: text });
   } catch (error) {

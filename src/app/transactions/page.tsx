@@ -12,10 +12,15 @@ type Transaction = {
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState<{ start?: string; end?: string }>({});
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Transaction>>({});
 
   const loadTransactions = async () => {
     setLoading(true);
@@ -24,7 +29,9 @@ export default function TransactionsPage() {
       const res = await fetch("/api/transactions");
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load");
-      setTransactions(data.transactions ?? []);
+      const txs = data.transactions ?? [];
+      setTransactions(txs);
+      setFilteredTransactions(txs);
     } catch (err) {
       setError("Could not load transactions yet.");
       console.error(err);
@@ -32,6 +39,39 @@ export default function TransactionsPage() {
       setLoading(false);
     }
   };
+
+  // Filter transactions based on search and date
+  useEffect(() => {
+    let filtered = [...transactions];
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (tx) =>
+          tx.merchant?.toLowerCase().includes(query) ||
+          tx.rawDescription?.toLowerCase().includes(query) ||
+          tx.amount?.toString().includes(query),
+      );
+    }
+
+    // Date filter
+    if (dateFilter.start || dateFilter.end) {
+      filtered = filtered.filter((tx) => {
+        if (!tx.date) return false;
+        const txDate = new Date(tx.date);
+        if (dateFilter.start && txDate < new Date(dateFilter.start)) return false;
+        if (dateFilter.end) {
+          const endDate = new Date(dateFilter.end);
+          endDate.setHours(23, 59, 59, 999);
+          if (txDate > endDate) return false;
+        }
+        return true;
+      });
+    }
+
+    setFilteredTransactions(filtered);
+  }, [transactions, searchQuery, dateFilter]);
 
   useEffect(() => {
     const load = async () => {
@@ -77,9 +117,54 @@ export default function TransactionsPage() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this transaction?")) return;
+
+    try {
+      const res = await fetch(`/api/transactions/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete");
+      await loadTransactions();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete transaction");
+    }
+  };
+
+  const handleEdit = (tx: Transaction) => {
+    setEditingId(tx._id);
+    setEditForm({
+      date: tx.date ? new Date(tx.date).toISOString().split("T")[0] : "",
+      amount: tx.amount,
+      merchant: tx.merchant || "",
+      rawDescription: tx.rawDescription || "",
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId) return;
+
+    try {
+      const res = await fetch(`/api/transactions/${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editForm),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      setEditingId(null);
+      await loadTransactions();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update transaction");
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditForm({});
+  };
+
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-50">
-      <div className="w-full px-8 py-10">
+    <main className="p-8">
         <h1 className="text-3xl font-semibold tracking-tight">
           Transactions
         </h1>
@@ -120,6 +205,98 @@ export default function TransactionsPage() {
           <p className="mt-2 text-sm text-zinc-400">{uploadMessage}</p>
         )}
 
+        {transactions.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-4">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/transactions/export");
+                  if (!res.ok) throw new Error("Export failed");
+                  const blob = await res.blob();
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `transactions-${new Date().toISOString().split("T")[0]}.csv`;
+                  document.body.appendChild(a);
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                  document.body.removeChild(a);
+                } catch (err) {
+                  console.error(err);
+                  alert("Failed to export transactions");
+                }
+              }}
+              className="inline-flex items-center justify-center rounded-md border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-100 hover:border-zinc-500 hover:bg-zinc-900"
+            >
+              Export as CSV
+            </button>
+          </div>
+        )}
+
+        {transactions.length > 0 && (
+          <div className="mt-6 rounded-lg border border-zinc-800 bg-zinc-900 p-4">
+            <div className="mb-4 grid gap-4 sm:grid-cols-3">
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">
+                  Search
+                </label>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search by merchant, description..."
+                  className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={dateFilter.start || ""}
+                  onChange={(e) =>
+                    setDateFilter({ ...dateFilter, start: e.target.value })
+                  }
+                  className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-100 focus:border-zinc-600 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={dateFilter.end || ""}
+                  onChange={(e) =>
+                    setDateFilter({ ...dateFilter, end: e.target.value })
+                  }
+                  className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-100 focus:border-zinc-600 focus:outline-none"
+                />
+              </div>
+            </div>
+            {(searchQuery || dateFilter.start || dateFilter.end) && (
+              <div className="mb-4 flex items-center gap-2">
+                <span className="text-xs text-zinc-400">
+                  Showing {filteredTransactions.length} of {transactions.length}{" "}
+                  transactions
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setDateFilter({});
+                  }}
+                  className="text-xs text-emerald-400 hover:text-emerald-300"
+                >
+                  Clear filters
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="mt-6 rounded-lg border border-zinc-800 bg-zinc-900 p-4">
           {loading && (
             <p className="text-sm text-zinc-400">Loading transactions...</p>
@@ -135,35 +312,141 @@ export default function TransactionsPage() {
               CSV file here.
             </p>
           )}
-          {!loading && !error && transactions.length > 0 && (
-            <table className="mt-2 w-full text-left text-sm">
-              <thead className="border-b border-zinc-800 text-zinc-400">
-                <tr>
-                  <th className="py-2">Date</th>
-                  <th className="py-2">Merchant</th>
-                  <th className="py-2 text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((tx) => (
-                  <tr key={tx._id} className="border-b border-zinc-900">
-                    <td className="py-2">
-                      {tx.date ? new Date(tx.date).toLocaleDateString() : "-"}
-                    </td>
-                    <td className="py-2">{tx.merchant ?? tx.rawDescription}</td>
-                    <td className="py-2 text-right">
-                      {typeof tx.amount === "number" ? tx.amount.toFixed(2) : "-"}
-                    </td>
+          {!loading && !error && filteredTransactions.length === 0 && transactions.length > 0 && (
+            <p className="text-sm text-zinc-400">
+              No transactions match your filters.
+            </p>
+          )}
+          {!loading && !error && filteredTransactions.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="mt-2 w-full text-left text-sm">
+                <thead className="border-b border-zinc-800 text-zinc-400">
+                  <tr>
+                    <th className="py-2">Date</th>
+                    <th className="py-2">Merchant</th>
+                    <th className="py-2">Description</th>
+                    <th className="py-2 text-right">Amount</th>
+                    <th className="py-2 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredTransactions.map((tx) => (
+                    <tr key={tx._id} className="border-b border-zinc-900 hover:bg-zinc-800/50">
+                      {editingId === tx._id ? (
+                        <>
+                          <td className="py-2">
+                            <input
+                              type="date"
+                              value={editForm.date || ""}
+                              onChange={(e) =>
+                                setEditForm({ ...editForm, date: e.target.value })
+                              }
+                              className="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs text-zinc-100"
+                            />
+                          </td>
+                          <td className="py-2">
+                            <input
+                              type="text"
+                              value={editForm.merchant || ""}
+                              onChange={(e) =>
+                                setEditForm({ ...editForm, merchant: e.target.value })
+                              }
+                              className="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs text-zinc-100"
+                            />
+                          </td>
+                          <td className="py-2">
+                            <input
+                              type="text"
+                              value={editForm.rawDescription || ""}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  rawDescription: e.target.value,
+                                })
+                              }
+                              className="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs text-zinc-100"
+                            />
+                          </td>
+                          <td className="py-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={editForm.amount || ""}
+                              onChange={(e) =>
+                                setEditForm({
+                                  ...editForm,
+                                  amount: Number(e.target.value),
+                                })
+                              }
+                              className="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs text-zinc-100"
+                            />
+                          </td>
+                          <td className="py-2 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={handleSaveEdit}
+                                className="text-xs text-emerald-400 hover:text-emerald-300"
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCancelEdit}
+                                className="text-xs text-zinc-400 hover:text-zinc-300"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="py-2">
+                            {tx.date ? new Date(tx.date).toLocaleDateString() : "-"}
+                          </td>
+                          <td className="py-2">{tx.merchant || "-"}</td>
+                          <td className="py-2 text-zinc-400">
+                            {tx.rawDescription || "-"}
+                          </td>
+                          <td
+                            className={`py-2 text-right font-medium ${
+                              typeof tx.amount === "number" && tx.amount >= 0
+                                ? "text-emerald-400"
+                                : "text-red-400"
+                            }`}
+                          >
+                            {typeof tx.amount === "number"
+                              ? `$${Math.abs(tx.amount).toFixed(2)}`
+                              : "-"}
+                          </td>
+                          <td className="py-2 text-right">
+                            <div className="flex justify-end gap-3">
+                              <button
+                                type="button"
+                                onClick={() => handleEdit(tx)}
+                                className="text-xs text-zinc-400 hover:text-zinc-300"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(tx._id)}
+                                className="text-xs text-red-400 hover:text-red-300"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
-      </div>
     </main>
   );
 }
-
-
-
