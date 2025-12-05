@@ -20,7 +20,7 @@ export async function POST() {
     const sevenDaysFromNow = new Date(now);
     sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
 
-    for (const sub of subscriptions as any[]) {
+    for (const sub of subscriptions as Array<{ nextRenewalDate?: Date | string; merchant?: string; amount?: number; _id?: unknown }>) {
       if (sub.nextRenewalDate) {
         const renewalDate = new Date(sub.nextRenewalDate);
         if (renewalDate >= now && renewalDate <= sevenDaysFromNow) {
@@ -67,10 +67,10 @@ export async function POST() {
     const thisMonthByMerchant = new Map<string, number>();
     const lastMonthByMerchant = new Map<string, number>();
 
-    for (const tx of thisMonthTxns as any[]) {
+    for (const tx of thisMonthTxns as Array<{ merchant?: string; rawDescription?: string; amount?: number }>) {
       const merchant =
-        (tx.merchant as string | undefined) ||
-        (tx.rawDescription as string | undefined) ||
+        tx.merchant ||
+        tx.rawDescription ||
         "Unknown";
       const amount = Math.abs(Number(tx.amount ?? 0));
       thisMonthByMerchant.set(
@@ -79,10 +79,10 @@ export async function POST() {
       );
     }
 
-    for (const tx of lastMonthTxns as any[]) {
+    for (const tx of lastMonthTxns as Array<{ merchant?: string; rawDescription?: string; amount?: number }>) {
       const merchant =
-        (tx.merchant as string | undefined) ||
-        (tx.rawDescription as string | undefined) ||
+        tx.merchant ||
+        tx.rawDescription ||
         "Unknown";
       const amount = Math.abs(Number(tx.amount ?? 0));
       lastMonthByMerchant.set(

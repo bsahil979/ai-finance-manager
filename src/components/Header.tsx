@@ -11,7 +11,6 @@ interface User {
 
 export default function Header() {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -23,8 +22,6 @@ export default function Header() {
         }
       } catch (err) {
         console.error("Error checking auth:", err);
-      } finally {
-        setLoading(false);
       }
     };
     checkAuth();
@@ -62,6 +59,9 @@ export default function Header() {
               </Link>
               <Link href="/alerts" className="hover:text-zinc-100">
                 Alerts
+              </Link>
+              <Link href="/budgets" className="hover:text-zinc-100">
+                Budgets
               </Link>
               <div className="h-4 w-px bg-zinc-800"></div>
               <span className="text-zinc-500">{user.name || user.email}</span>

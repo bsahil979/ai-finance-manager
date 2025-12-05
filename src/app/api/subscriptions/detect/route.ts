@@ -31,10 +31,10 @@ export async function POST() {
       Array<{ date: Date; amount: number }>
     >();
 
-    for (const tx of transactions as any[]) {
+    for (const tx of transactions as Array<{ merchant?: string; rawDescription?: string; amount?: number; date?: Date | string }>) {
       const merchant =
-        (tx.merchant as string | undefined) ||
-        (tx.rawDescription as string | undefined) ||
+        tx.merchant ||
+        tx.rawDescription ||
         "Unknown";
       const date = tx.date instanceof Date ? tx.date : new Date(tx.date);
       const amount = Number(tx.amount ?? 0);

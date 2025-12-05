@@ -13,13 +13,13 @@ export async function GET() {
     // Group by merchant (or description if no merchant)
     const byMerchant = new Map<string, number>();
 
-    for (const tx of transactions as any[]) {
+    for (const tx of transactions as Array<{ amount?: number; merchant?: string; rawDescription?: string }>) {
       const amount = Number(tx.amount ?? 0);
       if (amount >= 0) continue; // Only expenses (negative amounts)
 
       const merchant =
-        (tx.merchant as string | undefined) ||
-        (tx.rawDescription as string | undefined) ||
+        tx.merchant ||
+        tx.rawDescription ||
         "Unknown";
 
       byMerchant.set(merchant, (byMerchant.get(merchant) ?? 0) + Math.abs(amount));

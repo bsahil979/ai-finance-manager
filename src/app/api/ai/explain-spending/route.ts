@@ -69,11 +69,11 @@ export async function GET() {
     let totalIncome = 0;
     let totalExpense = 0;
 
-    for (const tx of transactions as any[]) {
+    for (const tx of transactions as Array<{ amount?: number; merchant?: string; rawDescription?: string }>) {
       const amount = Number(tx.amount ?? 0);
       const merchant =
-        (tx.merchant as string | undefined) ||
-        (tx.rawDescription as string | undefined) ||
+        tx.merchant ||
+        tx.rawDescription ||
         "Unknown";
 
       byMerchant.set(merchant, (byMerchant.get(merchant) ?? 0) + amount);
@@ -147,7 +147,13 @@ export async function GET() {
       );
     }
 
-    const json = (await response.json()) as any;
+    const json = (await response.json()) as {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{ text?: string }>;
+        };
+      }>;
+    };
     
     // Handle different possible response structures
     let text = "The AI did not return any content.";

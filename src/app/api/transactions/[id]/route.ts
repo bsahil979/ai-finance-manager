@@ -27,6 +27,7 @@ export async function PATCH(
     if (body.merchant !== undefined) updateData.merchant = body.merchant;
     if (body.rawDescription !== undefined)
       updateData.rawDescription = body.rawDescription;
+    if (body.category !== undefined) updateData.category = body.category;
     if (body.amount !== undefined) {
       updateData.type = Number(body.amount) >= 0 ? "income" : "expense";
     }

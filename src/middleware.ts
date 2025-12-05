@@ -7,6 +7,7 @@ const protectedRoutes = [
   "/transactions",
   "/subscriptions",
   "/alerts",
+  "/budgets",
 ];
 
 // Routes that should redirect to dashboard if already authenticated

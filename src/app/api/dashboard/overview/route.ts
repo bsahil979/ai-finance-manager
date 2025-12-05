@@ -25,7 +25,7 @@ export async function GET() {
     let monthIncome = 0;
     let monthExpense = 0;
 
-    for (const tx of transactions as any[]) {
+    for (const tx of transactions as Array<{ amount?: number; date?: Date | string }>) {
       const amount = Number(tx.amount ?? 0);
       const date = tx.date ? new Date(tx.date) : null;
 

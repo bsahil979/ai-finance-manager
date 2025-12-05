@@ -16,6 +16,11 @@ type SpendingBreakdown = {
   amount: number;
 };
 
+type CategoryBreakdown = {
+  category: string;
+  amount: number;
+};
+
 export default function DashboardPage() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,6 +29,7 @@ export default function DashboardPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [spendingBreakdown, setSpendingBreakdown] = useState<SpendingBreakdown[]>([]);
+  const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryBreakdown[]>([]);
   const [unreadAlerts, setUnreadAlerts] = useState(0);
 
   useEffect(() => {
@@ -44,10 +50,17 @@ export default function DashboardPage() {
 
     const loadBreakdown = async () => {
       try {
-        const res = await fetch("/api/dashboard/spending-breakdown");
-        const data = await res.json();
-        if (res.ok && data.breakdown) {
-          setSpendingBreakdown(data.breakdown);
+        const [merchantRes, categoryRes] = await Promise.all([
+          fetch("/api/dashboard/spending-breakdown"),
+          fetch("/api/dashboard/category-breakdown"),
+        ]);
+        const merchantData = await merchantRes.json();
+        const categoryData = await categoryRes.json();
+        if (merchantRes.ok && merchantData.breakdown) {
+          setSpendingBreakdown(merchantData.breakdown);
+        }
+        if (categoryRes.ok && categoryData.breakdown) {
+          setCategoryBreakdown(categoryData.breakdown);
         }
       } catch (err) {
         console.error("Failed to load spending breakdown", err);
@@ -188,7 +201,7 @@ export default function DashboardPage() {
             )}
 
             <div className="grid gap-6 lg:grid-cols-2">
-              {/* Spending Breakdown */}
+              {/* Spending Breakdown by Merchant */}
               {spendingBreakdown.length > 0 && (
                 <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
                   <h2 className="text-lg font-semibold mb-4">Top Spending by Merchant</h2>
@@ -207,6 +220,35 @@ export default function DashboardPage() {
                           <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden">
                             <div
                               className="h-full bg-gradient-to-r from-emerald-400 to-sky-400 rounded-full transition-all"
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Spending Breakdown by Category */}
+              {categoryBreakdown.length > 0 && (
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
+                  <h2 className="text-lg font-semibold mb-4">Spending by Category</h2>
+                  <div className="space-y-4">
+                    {categoryBreakdown.slice(0, 5).map((item, idx) => {
+                      const maxAmount = categoryBreakdown[0]?.amount || 1;
+                      const percentage = (item.amount / maxAmount) * 100;
+                      return (
+                        <div key={idx} className="space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-zinc-300">{item.category}</span>
+                            <span className="text-zinc-400 font-medium">
+                              {formatCurrency(item.amount)}
+                            </span>
+                          </div>
+                          <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-purple-400 to-pink-400 rounded-full transition-all"
                               style={{ width: `${percentage}%` }}
                             />
                           </div>

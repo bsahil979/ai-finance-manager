@@ -8,6 +8,7 @@ type Transaction = {
   amount?: number;
   merchant?: string;
   rawDescription?: string;
+  category?: string;
 };
 
 export default function TransactionsPage() {
@@ -19,8 +20,10 @@ export default function TransactionsPage() {
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState<{ start?: string; end?: string }>({});
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Transaction>>({});
+  const [categories, setCategories] = useState<string[]>([]);
 
   const loadTransactions = async () => {
     setLoading(true);
@@ -40,7 +43,19 @@ export default function TransactionsPage() {
     }
   };
 
-  // Filter transactions based on search and date
+  // Extract unique categories
+  useEffect(() => {
+    const uniqueCategories = Array.from(
+      new Set(
+        transactions
+          .map((tx) => tx.category)
+          .filter((cat): cat is string => Boolean(cat)),
+      ),
+    ).sort();
+    setCategories(uniqueCategories);
+  }, [transactions]);
+
+  // Filter transactions based on search, date, and category
   useEffect(() => {
     let filtered = [...transactions];
 
@@ -51,8 +66,14 @@ export default function TransactionsPage() {
         (tx) =>
           tx.merchant?.toLowerCase().includes(query) ||
           tx.rawDescription?.toLowerCase().includes(query) ||
-          tx.amount?.toString().includes(query),
+          tx.amount?.toString().includes(query) ||
+          tx.category?.toLowerCase().includes(query),
       );
+    }
+
+    // Category filter
+    if (categoryFilter) {
+      filtered = filtered.filter((tx) => tx.category === categoryFilter);
     }
 
     // Date filter
@@ -71,7 +92,7 @@ export default function TransactionsPage() {
     }
 
     setFilteredTransactions(filtered);
-  }, [transactions, searchQuery, dateFilter]);
+  }, [transactions, searchQuery, dateFilter, categoryFilter]);
 
   useEffect(() => {
     const load = async () => {
@@ -137,7 +158,28 @@ export default function TransactionsPage() {
       amount: tx.amount,
       merchant: tx.merchant || "",
       rawDescription: tx.rawDescription || "",
+      category: tx.category || "",
     });
+  };
+
+  const handleSuggestCategory = async (tx: Transaction) => {
+    try {
+      const res = await fetch("/api/ai/suggest-category", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          merchant: tx.merchant,
+          description: tx.rawDescription,
+          amount: tx.amount,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.category) {
+        setEditForm({ ...editForm, category: data.category });
+      }
+    } catch (err) {
+      console.error("Failed to suggest category", err);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -236,7 +278,7 @@ export default function TransactionsPage() {
 
         {transactions.length > 0 && (
           <div className="mt-6 rounded-lg border border-zinc-800 bg-zinc-900 p-4">
-            <div className="mb-4 grid gap-4 sm:grid-cols-3">
+            <div className="mb-4 grid gap-4 sm:grid-cols-4">
               <div>
                 <label className="block text-xs font-medium text-zinc-400 mb-1">
                   Search
@@ -248,6 +290,23 @@ export default function TransactionsPage() {
                   placeholder="Search by merchant, description..."
                   className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-zinc-600 focus:outline-none"
                 />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">
+                  Category
+                </label>
+                <select
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                  className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-sm text-zinc-100 focus:border-zinc-600 focus:outline-none"
+                >
+                  <option value="">All Categories</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-xs font-medium text-zinc-400 mb-1">
@@ -276,7 +335,7 @@ export default function TransactionsPage() {
                 />
               </div>
             </div>
-            {(searchQuery || dateFilter.start || dateFilter.end) && (
+            {(searchQuery || dateFilter.start || dateFilter.end || categoryFilter) && (
               <div className="mb-4 flex items-center gap-2">
                 <span className="text-xs text-zinc-400">
                   Showing {filteredTransactions.length} of {transactions.length}{" "}
@@ -287,6 +346,7 @@ export default function TransactionsPage() {
                   onClick={() => {
                     setSearchQuery("");
                     setDateFilter({});
+                    setCategoryFilter("");
                   }}
                   className="text-xs text-emerald-400 hover:text-emerald-300"
                 >
@@ -325,6 +385,7 @@ export default function TransactionsPage() {
                     <th className="py-2">Date</th>
                     <th className="py-2">Merchant</th>
                     <th className="py-2">Description</th>
+                    <th className="py-2">Category</th>
                     <th className="py-2 text-right">Amount</th>
                     <th className="py-2 text-right">Actions</th>
                   </tr>
@@ -368,6 +429,42 @@ export default function TransactionsPage() {
                             />
                           </td>
                           <td className="py-2">
+                            <div className="flex gap-1">
+                              <input
+                                type="text"
+                                list="categories"
+                                value={editForm.category || ""}
+                                onChange={(e) =>
+                                  setEditForm({ ...editForm, category: e.target.value })
+                                }
+                                placeholder="Category"
+                                className="w-full rounded border border-zinc-700 bg-zinc-800 px-2 py-1 text-xs text-zinc-100"
+                              />
+                              <datalist id="categories">
+                                <option value="Food & Dining" />
+                                <option value="Groceries" />
+                                <option value="Shopping" />
+                                <option value="Transportation" />
+                                <option value="Bills & Utilities" />
+                                <option value="Entertainment" />
+                                <option value="Healthcare" />
+                                <option value="Travel" />
+                                <option value="Subscriptions" />
+                                <option value="Gas & Fuel" />
+                                <option value="Income" />
+                                <option value="Other" />
+                              </datalist>
+                              <button
+                                type="button"
+                                onClick={() => handleSuggestCategory(tx)}
+                                className="text-xs text-emerald-400 hover:text-emerald-300 px-2"
+                                title="Suggest category"
+                              >
+                                ✨
+                              </button>
+                            </div>
+                          </td>
+                          <td className="py-2">
                             <input
                               type="number"
                               step="0.01"
@@ -408,6 +505,15 @@ export default function TransactionsPage() {
                           <td className="py-2">{tx.merchant || "-"}</td>
                           <td className="py-2 text-zinc-400">
                             {tx.rawDescription || "-"}
+                          </td>
+                          <td className="py-2">
+                            {tx.category ? (
+                              <span className="inline-flex items-center rounded-full bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300">
+                                {tx.category}
+                              </span>
+                            ) : (
+                              <span className="text-zinc-500 text-xs">-</span>
+                            )}
                           </td>
                           <td
                             className={`py-2 text-right font-medium ${

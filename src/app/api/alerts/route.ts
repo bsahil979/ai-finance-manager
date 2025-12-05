@@ -18,7 +18,7 @@ export async function GET() {
       .limit(50)
       .toArray();
 
-    const unreadCount = alerts.filter((a: any) => !a.isRead).length;
+    const unreadCount = alerts.filter((a) => !(a as { isRead?: boolean }).isRead).length;
 
     return NextResponse.json({ alerts, unreadCount });
   } catch (error) {

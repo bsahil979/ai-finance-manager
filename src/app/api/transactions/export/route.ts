@@ -12,11 +12,11 @@ export async function GET() {
 
     // Convert to CSV format
     const headers = "date,amount,merchant,description,type\n";
-    const rows = (transactions as any[])
+    const rows = (transactions as Array<{ date?: Date | string; amount?: number; merchant?: string; rawDescription?: string; type?: string }>)
       .map((tx) => {
         const date = tx.date instanceof Date 
           ? tx.date.toISOString().split("T")[0]
-          : new Date(tx.date).toISOString().split("T")[0];
+          : tx.date ? new Date(tx.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
         const amount = tx.amount ?? 0;
         const merchant = (tx.merchant || "").replace(/,/g, ";");
         const description = (tx.rawDescription || "").replace(/,/g, ";");
