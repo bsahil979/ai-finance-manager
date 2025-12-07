@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db/mongo";
 import { getCurrentUser } from "@/lib/auth";
 import { ObjectId } from "mongodb";
-import bcrypt from "bcryptjs";
 
 // GET /api/profile - get current user profile
 export async function GET() {

@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     const db = await getDb();
     const now = new Date();
     const start = new Date(startDate);
-    let nextOccurrence = new Date(start);
+    const nextOccurrence = new Date(start);
 
     // Calculate next occurrence based on frequency
     if (frequency === "daily") {

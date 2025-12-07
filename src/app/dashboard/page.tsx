@@ -265,13 +265,13 @@ export default function DashboardPage() {
             statusText: res.statusText,
             error: errorData,
           });
-        } catch (parseError) {
+        } catch {
           // If JSON parsing fails, try to get text
           try {
             const errorText = await res.text();
             errorMsg = errorText || errorMsg;
             console.error("API error (text):", errorText);
-          } catch (textError) {
+          } catch {
             console.error("API error (unable to parse):", res.status, res.statusText);
           }
         }

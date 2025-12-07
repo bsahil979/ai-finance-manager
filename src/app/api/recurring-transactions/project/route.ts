@@ -47,7 +47,7 @@ export async function GET() {
       category?: string;
       merchant?: string;
     }>) {
-      let currentDate = new Date(rt.nextOccurrence);
+      const currentDate = new Date(rt.nextOccurrence);
       const endDate = rt.endDate ? new Date(rt.endDate) : null;
 
       while (currentDate <= thirtyDaysFromNow) {

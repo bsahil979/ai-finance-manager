@@ -203,7 +203,7 @@ export async function GET() {
             availableModelsInfo = ` Available models: ${modelNames.join(", ")}`;
           }
         }
-      } catch (e) {
+      } catch {
         // Ignore errors when listing models
       }
       

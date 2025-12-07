@@ -142,7 +142,7 @@ function parseSmsOrUpi(text: string): ParsedTransaction | null {
             }
           }
         }
-      } catch (e) {
+      } catch {
         // Keep default date
       }
     }
@@ -241,7 +241,7 @@ export async function POST(req: NextRequest) {
           success: true,
           transaction: { _id: result.insertedId, ...transaction },
         });
-      } catch (error) {
+      } catch {
         results.failed++;
         results.transactions.push({
           text: text.trim(),

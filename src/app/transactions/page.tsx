@@ -35,7 +35,7 @@ export default function TransactionsPage() {
   const [amountFilter, setAmountFilter] = useState<{ min?: string; max?: string }>({});
   const [merchantFilter, setMerchantFilter] = useState<string>("");
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [savedFilters, setSavedFilters] = useState<Array<{ name: string; filters: Record<string, string> }>>([]);
+  const [, setSavedFilters] = useState<Array<{ name: string; filters: Record<string, string> }>>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Transaction>>({});
   const [categories, setCategories] = useState<string[]>([]);
@@ -158,6 +158,7 @@ export default function TransactionsPage() {
   // Initial load
   useEffect(() => {
     loadTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Reload transactions when filters change (with debounce for search)
@@ -568,7 +569,7 @@ export default function TransactionsPage() {
                                 } else {
                                   setParseMessage("Could not auto-parse. Click 'Parse & Create' to try manually.");
                                 }
-                              } catch (err) {
+                              } catch {
                                 setParseMessage("Auto-parse failed. Click 'Parse & Create' to try manually.");
                               } finally {
                                 setParsingSms(false);
@@ -605,7 +606,7 @@ export default function TransactionsPage() {
                                 setSmsUpiText("");
                                 await loadTransactions();
                               }
-                            } catch (err) {
+                            } catch {
                               // Silent fail for auto-detect on blur
                             } finally {
                               setParsingSms(false);
@@ -768,9 +769,9 @@ export default function TransactionsPage() {
                   <div className="text-xs text-zinc-500 space-y-1">
                     <p className="font-medium text-zinc-400">Supported formats:</p>
                     <ul className="list-disc list-inside space-y-0.5 ml-2">
-                      <li>Bank SMS: "₹800 debited from A/C..."</li>
-                      <li>UPI: "You paid ₹500 to Merchant Name via GPay"</li>
-                      <li>Credit: "₹5000 credited to your account"</li>
+                      <li>Bank SMS: &quot;₹800 debited from A/C...&quot;</li>
+                      <li>UPI: &quot;You paid ₹500 to Merchant Name via GPay&quot;</li>
+                      <li>Credit: &quot;₹5000 credited to your account&quot;</li>
                       <li>PhonePe/GPay/Paytm notifications</li>
                     </ul>
                     <p className="mt-2 text-zinc-600">

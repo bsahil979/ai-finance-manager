@@ -157,7 +157,7 @@ function parseSmsOrUpi(text: string): ParsedTransaction | null {
             }
           }
         }
-      } catch (e) {
+      } catch {
         // Keep default date if parsing fails
       }
     }

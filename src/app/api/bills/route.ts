@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
 
-    let query: Record<string, unknown> = { userId: user._id };
+    const query: Record<string, unknown> = { userId: user._id };
 
     if (status === "upcoming") {
       query.isPaid = false;

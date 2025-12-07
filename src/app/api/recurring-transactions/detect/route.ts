@@ -78,7 +78,7 @@ export async function POST() {
       occurrences: number;
     }> = [];
 
-    for (const [key, txs] of byKey.entries()) {
+    for (const [, txs] of byKey.entries()) {
       if (txs.length < 2) continue; // Need at least 2 occurrences
 
       // Sort by date

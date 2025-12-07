@@ -25,7 +25,6 @@ export async function POST() {
       );
     }
 
-    const now = new Date();
     const detectedBills: Array<{
       name: string;
       amount: number;
@@ -142,7 +141,7 @@ export async function POST() {
 
       // Calculate next due date (from most recent transaction)
       const lastTx = txs[txs.length - 1];
-      let dueDate = new Date(lastTx.date);
+      const dueDate = new Date(lastTx.date);
 
       if (isRecurring && recurringFrequency) {
         // Set next due date based on frequency
