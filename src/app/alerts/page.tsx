@@ -14,7 +14,6 @@ interface Alert {
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadAlerts = async () => {
@@ -33,31 +32,29 @@ export default function AlertsPage() {
   };
 
   useEffect(() => {
-    loadAlerts();
-  }, []);
-
-  const handleGenerate = async () => {
-    setGenerating(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/alerts/generate", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to generate alerts");
-      
-      await loadAlerts();
-      
-      if (data.generated > 0) {
-        alert(`Generated ${data.generated} new alerts!`);
-      } else {
-        alert("No new alerts found. Everything looks normal!");
+    // Auto-generate alerts on page load
+    const generateAndLoad = async () => {
+      try {
+        // Generate alerts first
+        await fetch("/api/alerts/generate", { method: "POST" });
+        // Then load them
+        await loadAlerts();
+      } catch (err) {
+        console.error("Error generating alerts:", err);
+        // Still try to load existing alerts
+        await loadAlerts();
       }
-    } catch (err) {
-      console.error(err);
-      setError("Could not generate alerts. Make sure you have transactions and subscriptions.");
-    } finally {
-      setGenerating(false);
-    }
-  };
+    };
+    
+    generateAndLoad();
+    
+    // Refresh alerts every 60 seconds
+    const interval = setInterval(() => {
+      generateAndLoad();
+    }, 60000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const handleMarkRead = async (id: string, isRead: boolean) => {
     try {
@@ -77,23 +74,13 @@ export default function AlertsPage() {
 
   return (
     <main className="p-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">
-              Alerts
-            </h1>
-            <p className="mt-2 text-zinc-400">
-              Upcoming renewals and unusual spending patterns.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={generating}
-            className="inline-flex items-center justify-center rounded-md bg-emerald-400 px-4 py-2 text-xs font-semibold text-zinc-950 shadow-sm hover:bg-emerald-300 disabled:opacity-60"
-          >
-            {generating ? "Generating..." : "Generate Alerts"}
-          </button>
+        <div className="mb-6">
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Alerts & Notifications
+          </h1>
+          <p className="mt-2 text-zinc-400">
+            Alerts are automatically generated for upcoming renewals and unusual spending patterns.
+          </p>
         </div>
 
         {error && (
@@ -115,8 +102,14 @@ export default function AlertsPage() {
         {!loading && alerts.length === 0 && (
           <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-8 text-center">
             <p className="text-zinc-400">
-              No alerts yet. Click &quot;Generate Alerts&quot; to check for
-              upcoming renewals and unusual spending patterns.
+              No alerts yet. Alerts are automatically generated when:
+            </p>
+            <ul className="mt-4 text-sm text-zinc-500 space-y-1 list-disc list-inside">
+              <li>Subscriptions are due for renewal within 7 days</li>
+              <li>Unusual spending patterns are detected</li>
+            </ul>
+            <p className="mt-4 text-xs text-zinc-600">
+              Make sure you have transactions and subscriptions to generate alerts.
             </p>
           </div>
         )}

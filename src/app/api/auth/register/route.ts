@@ -14,6 +14,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: "Please enter a valid email address" },
+        { status: 400 },
+      );
+    }
+
     if (password.length < 8) {
       return NextResponse.json(
         { error: "Password must be at least 8 characters" },
@@ -74,10 +83,27 @@ export async function POST(req: NextRequest) {
     return response;
   } catch (error) {
     console.error("Registration error:", error);
+    
+    // Provide more specific error messages
+    let errorMessage = "Registration failed";
+    
+    if (error instanceof Error) {
+      // Check for MongoDB connection errors
+      if (error.message.includes("MONGODB_URI") || error.message.includes("connection")) {
+        errorMessage = "Database connection failed. Please check your MongoDB configuration.";
+      } else if (error.message.includes("duplicate") || error.message.includes("E11000")) {
+        errorMessage = "User with this email already exists";
+      } else {
+        errorMessage = error.message || "Registration failed. Please try again.";
+      }
+    }
+    
     return NextResponse.json(
-      { error: "Registration failed" },
+      { error: errorMessage },
       { status: 500 },
     );
   }
 }
+
+
 

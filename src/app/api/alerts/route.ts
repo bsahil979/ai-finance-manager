@@ -32,6 +32,11 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
     const body = await req.json();
@@ -45,7 +50,7 @@ export async function PATCH(req: Request) {
 
     const db = await getDb();
     await db.collection("alerts").updateOne(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), userId: user._id },
       {
         $set: {
           isRead: body.isRead ?? true,

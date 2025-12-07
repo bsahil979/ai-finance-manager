@@ -1,25 +1,31 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db/mongo";
+import { getCurrentUser } from "@/lib/auth";
 
 // Use Gemini (Google AI Studio) instead of OpenAI.
 // Get an API key from: https://aistudio.google.com
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
 
 export async function GET() {
-  if (!GEMINI_API_KEY || GEMINI_API_KEY.trim() === "") {
-    return NextResponse.json(
-      {
-        error:
-          "GEMINI_API_KEY is not set. Add it to your .env file as GEMINI_API_KEY=your_key_here",
-      },
-      { status: 500 },
-    );
-  }
-  
-  // Log partial key for debugging (first 10 chars only)
-  console.log("Using Gemini API key:", GEMINI_API_KEY.substring(0, 10) + "...");
-
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!GEMINI_API_KEY || GEMINI_API_KEY.trim() === "") {
+      return NextResponse.json(
+        {
+          error:
+            "GEMINI_API_KEY is not set. Add it to your .env file as GEMINI_API_KEY=your_key_here",
+        },
+        { status: 500 },
+      );
+    }
+    
+    // Log partial key for debugging (first 10 chars only)
+    console.log("Using Gemini API key:", GEMINI_API_KEY.substring(0, 10) + "...");
+
     const db = await getDb();
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -30,6 +36,7 @@ export async function GET() {
     let transactions = await db
       .collection("transactions")
       .find({
+        userId: user._id,
         date: { $gte: monthStart, $lte: now },
       })
       .toArray();
@@ -39,16 +46,17 @@ export async function GET() {
       transactions = await db
         .collection("transactions")
         .find({
+          userId: user._id,
           date: { $gte: thirtyDaysAgo, $lte: now },
         })
         .toArray();
     }
 
-    // If still no transactions, try all transactions
+    // If still no transactions, try all user transactions
     if (!transactions.length) {
       transactions = await db
         .collection("transactions")
-        .find({})
+        .find({ userId: user._id })
         .sort({ date: -1 })
         .limit(50)
         .toArray();
@@ -101,47 +109,107 @@ export async function GET() {
       merchantLines,
     ].join("\n");
 
-    // Gemini API uses API key as query parameter
-    // Try gemini-pro first (most commonly available), then fallback to gemini-1.5-flash-latest
-    const modelName = "gemini-pro";
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+    // Gemini API - try v1 API first (more stable), then fallback to v1beta
+    // Use the newer Gemini 2.x models that are actually available
+    const apiVersions = ["v1", "v1beta"];
+    const modelsToTry = [
+      "gemini-2.5-flash",      // Fast and cost-effective (newest)
+      "gemini-2.0-flash",      // Fast alternative
+      "gemini-2.5-pro",        // More capable (newest)
+      "gemini-2.0-flash-001",  // Specific version
+      "gemini-1.5-flash",      // Fallback to older models
+      "gemini-1.5-pro",        // Fallback to older models
+    ];
     
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }],
-          },
-        ],
-      }),
-    });
+    let lastError: string | null = null;
+    let response: Response | null = null;
+    let successfulModel: string | null = null;
+    
+    // Try each API version with each model
+    for (const apiVersion of apiVersions) {
+      for (const modelName of modelsToTry) {
+        try {
+          const apiUrl = `https://generativelanguage.googleapis.com/${apiVersion}/models/${modelName}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+          
+          console.log(`Trying ${apiVersion} with model ${modelName}...`);
+          
+          response = await fetch(apiUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [{ text: prompt }],
+                },
+              ],
+            }),
+          });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      let errorJson;
-      try {
-        errorJson = JSON.parse(errorText);
-      } catch {
-        errorJson = { message: errorText };
+          if (response.ok) {
+            successfulModel = `${apiVersion}/${modelName}`;
+            console.log(`Success with ${successfulModel}`);
+            break; // Success, exit inner loop
+          } else {
+            const errorText = await response.text();
+            let errorJson;
+            try {
+              errorJson = JSON.parse(errorText);
+            } catch {
+              errorJson = { message: errorText };
+            }
+            
+            lastError = errorJson?.error?.message || errorJson?.message || errorText.substring(0, 300);
+            
+            // If model not found, try next model
+            if (lastError.includes("not found") || lastError.includes("not supported")) {
+              console.log(`Model ${modelName} not available in ${apiVersion}, trying next...`);
+              continue;
+            } else {
+              // Other error, log and continue
+              console.log(`Error with ${apiVersion}/${modelName}: ${lastError}`);
+              continue;
+            }
+          }
+        } catch (fetchError) {
+          lastError = fetchError instanceof Error ? fetchError.message : String(fetchError);
+          console.log(`Network error with ${apiVersion}/${modelName}: ${lastError}`);
+          continue; // Try next model
+        }
       }
       
-      console.error("Gemini API error:", response.status, errorJson);
+      if (response && response.ok) {
+        break; // Success, exit outer loop
+      }
+    }
+
+    if (!response || !response.ok) {
+      const errorMessage = lastError || "Failed to connect to Gemini API";
+      console.error("Gemini API error after trying all models:", errorMessage);
       
-      // Return more helpful error message
-      const errorMessage = 
-        errorJson?.error?.message || 
-        errorJson?.message || 
-        errorText.substring(0, 300) ||
-        `API returned status ${response.status}`;
+      // Try to list available models for debugging
+      let availableModelsInfo = "";
+      try {
+        const listUrl = `https://generativelanguage.googleapis.com/v1/models?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+        const listResponse = await fetch(listUrl);
+        if (listResponse.ok) {
+          const listData = await listResponse.json();
+          if (listData.models && Array.isArray(listData.models)) {
+            const modelNames = listData.models
+              .map((m: { name?: string }) => m.name?.replace("models/", "") || "")
+              .filter((n: string) => n)
+              .slice(0, 5);
+            availableModelsInfo = ` Available models: ${modelNames.join(", ")}`;
+          }
+        }
+      } catch (e) {
+        // Ignore errors when listing models
+      }
       
       return NextResponse.json(
         { 
-          error: `Gemini API error: ${errorMessage}`,
-          details: errorText.substring(0, 500)
+          error: `Gemini API error: ${errorMessage}.${availableModelsInfo} Please verify your API key is valid and has access to Gemini models. You can check available models at https://aistudio.google.com`,
         },
         { status: 500 },
       );
@@ -153,6 +221,7 @@ export async function GET() {
           parts?: Array<{ text?: string }>;
         };
       }>;
+      text?: string;
     };
     
     // Handle different possible response structures

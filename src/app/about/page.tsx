@@ -10,7 +10,7 @@ export default function AboutPage() {
             <h1 className="text-4xl font-semibold tracking-tight md:text-5xl mb-4">
               About{" "}
               <span className="bg-gradient-to-r from-emerald-400 to-sky-400 bg-clip-text text-transparent">
-                AI Finance Manager
+                LEDG
               </span>
             </h1>
             <p className="text-lg text-zinc-400 max-w-2xl mx-auto">
@@ -24,7 +24,7 @@ export default function AboutPage() {
             <h2 className="text-2xl font-semibold mb-4">Our Mission</h2>
             <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6 space-y-4 text-zinc-300">
               <p>
-                At AI Finance Manager, we believe that everyone deserves to have
+                At LEDG, we believe that everyone deserves to have
                 a clear understanding of their financial health. Our mission is to
                 make personal finance management accessible, intuitive, and
                 intelligent.
@@ -91,7 +91,7 @@ export default function AboutPage() {
             <h2 className="text-2xl font-semibold mb-6">Built With Modern Technology</h2>
             <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
               <p className="text-zinc-300 mb-4">
-                AI Finance Manager is built using industry-standard technologies
+                LEDG is built using industry-standard technologies
                 to ensure reliability, security, and performance:
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -146,7 +146,7 @@ export default function AboutPage() {
             <h2 className="text-2xl font-semibold mb-4">About the Developer</h2>
             <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
               <p className="text-zinc-300 mb-4">
-                AI Finance Manager is a portfolio project developed by{" "}
+                LEDG is a portfolio project developed by{" "}
                 <span className="text-emerald-400 font-medium">Sahil Belchada</span>,
                 showcasing full-stack development skills with modern technologies.
               </p>
@@ -200,4 +200,6 @@ export default function AboutPage() {
     </main>
   );
 }
+
+
 

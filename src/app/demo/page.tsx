@@ -15,7 +15,7 @@ export default function DemoPage() {
             <h1 className="text-4xl font-semibold tracking-tight md:text-5xl mb-4">
               See{" "}
               <span className="bg-gradient-to-r from-emerald-400 to-sky-400 bg-clip-text text-transparent">
-                AI Finance Manager
+                LEDG
               </span>{" "}
               in Action
             </h1>
@@ -83,15 +83,15 @@ export default function DemoPage() {
                 <div className="grid gap-4 md:grid-cols-3">
                   <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-6">
                     <p className="text-xs text-zinc-500 mb-2">Net Worth</p>
-                    <p className="text-2xl font-semibold text-emerald-400">$12,450.00</p>
+                    <p className="text-2xl font-semibold text-emerald-400">₹12,450.00</p>
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-6">
                     <p className="text-xs text-zinc-500 mb-2">This Month - Income</p>
-                    <p className="text-2xl font-semibold text-emerald-400">$3,200.00</p>
+                    <p className="text-2xl font-semibold text-emerald-400">₹3,200.00</p>
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-6">
                     <p className="text-xs text-zinc-500 mb-2">This Month - Expenses</p>
-                    <p className="text-2xl font-semibold text-red-400">-$1,750.00</p>
+                    <p className="text-2xl font-semibold text-red-400">-₹1,750.00</p>
                   </div>
                 </div>
 
@@ -106,7 +106,7 @@ export default function DemoPage() {
                       <div key={idx} className="space-y-1">
                         <div className="flex items-center justify-between text-sm">
                           <span className="text-zinc-300">{item.merchant}</span>
-                          <span className="text-zinc-400">${item.amount.toFixed(2)}</span>
+                          <span className="text-zinc-400">₹{item.amount.toFixed(2)}</span>
                         </div>
                         <div className="h-2 w-full rounded-full bg-zinc-800 overflow-hidden">
                           <div
@@ -200,7 +200,7 @@ export default function DemoPage() {
                                 tx.amount >= 0 ? "text-emerald-400" : "text-red-400"
                               }`}
                             >
-                              ${Math.abs(tx.amount).toFixed(2)}
+                              ₹{Math.abs(tx.amount).toFixed(2)}
                             </td>
                           </tr>
                         ))}
@@ -269,7 +269,7 @@ export default function DemoPage() {
                         ].map((sub, idx) => (
                           <tr key={idx} className="border-b border-zinc-900">
                             <td className="py-2 font-medium text-zinc-300">{sub.merchant}</td>
-                            <td className="py-2 text-zinc-300">${sub.amount.toFixed(2)}</td>
+                            <td className="py-2 text-zinc-300">₹{sub.amount.toFixed(2)}</td>
                             <td className="py-2 text-zinc-400 capitalize">{sub.cycle}</td>
                             <td className="py-2 text-zinc-400">{sub.renewal}</td>
                           </tr>
@@ -318,16 +318,16 @@ export default function DemoPage() {
                       </p>
                       <ul className="list-disc list-inside space-y-2 text-zinc-400 ml-4">
                         <li>
-                          You&apos;ve spent <strong className="text-red-400">$450 on Amazon</strong> this
+                          You&apos;ve spent <strong className="text-red-400">₹450 on Amazon</strong> this
                           month, which is 2x your average. Consider reviewing these purchases.
                         </li>
                         <li>
                           Your <strong className="text-emerald-400">subscription spending</strong> totals
-                          $40.97/month. Cancelling one unused service could save you $120/year.
+                          ₹40.97/month. Cancelling one unused service could save you ₹120/year.
                         </li>
                         <li>
                           <strong className="text-emerald-400">Coffee expenses</strong> at Starbucks
-                          ($180/month) could be reduced by 50% with a home setup, saving $1,080/year.
+                          (₹180/month) could be reduced by 50% with a home setup, saving ₹1,080/year.
                         </li>
                       </ul>
                       <p className="mt-4 pt-4 border-t border-zinc-800">
@@ -389,4 +389,6 @@ export default function DemoPage() {
     </main>
   );
 }
+
+
 

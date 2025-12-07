@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db/mongo";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -28,6 +29,11 @@ export async function GET() {
 
 export async function DELETE(req: Request) {
   try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
@@ -39,7 +45,10 @@ export async function DELETE(req: Request) {
     }
 
     const db = await getDb();
-    await db.collection("subscriptions").deleteOne({ _id: id });
+    await db.collection("subscriptions").deleteOne({
+      _id: new ObjectId(id),
+      userId: user._id,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

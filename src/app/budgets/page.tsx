@@ -94,9 +94,9 @@ export default function BudgetsPage() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-IN", {
       style: "currency",
-      currency: "USD",
+      currency: "INR",
     }).format(amount);
   };
 
@@ -162,7 +162,7 @@ export default function BudgetsPage() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-zinc-400 mb-1">
-                  Amount ($)
+                  Amount (₹)
                 </label>
                 <input
                   type="number"

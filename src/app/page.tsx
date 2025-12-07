@@ -8,7 +8,7 @@ export default function Home() {
         <div className="mx-auto max-w-6xl">
           <div className="text-center">
             <p className="text-sm font-semibold uppercase tracking-[0.3em] text-zinc-500">
-              AI Finance Manager
+              LEDG
             </p>
             <h1 className="mt-4 text-5xl font-semibold tracking-tight md:text-6xl lg:text-7xl">
               Take control of your{" "}

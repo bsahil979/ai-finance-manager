@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db/mongo";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const id = params.id;
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
     const body = await req.json();
 
     if (!id) {
@@ -33,7 +39,7 @@ export async function PATCH(
     }
 
     await db.collection("transactions").updateOne(
-      { _id: new ObjectId(id) },
+      { _id: new ObjectId(id), userId: user._id },
       { $set: updateData },
     );
 
@@ -49,10 +55,15 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const id = params.id;
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json(
@@ -62,7 +73,10 @@ export async function DELETE(
     }
 
     const db = await getDb();
-    await db.collection("transactions").deleteOne({ _id: new ObjectId(id) });
+    await db.collection("transactions").deleteOne({
+      _id: new ObjectId(id),
+      userId: user._id,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

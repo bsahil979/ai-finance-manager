@@ -12,9 +12,12 @@ export interface Transaction {
   type: TransactionType;
   isSubscription: boolean;
   subscriptionId?: string;
-  source: "csv" | "api";
+  source: "csv" | "api" | "sms";
   createdAt: Date;
   updatedAt: Date;
 }
+
+
+
 
 

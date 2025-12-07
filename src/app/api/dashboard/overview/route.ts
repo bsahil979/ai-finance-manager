@@ -29,22 +29,28 @@ export async function GET() {
       const amount = Number(tx.amount ?? 0);
       const date = tx.date ? new Date(tx.date) : null;
 
-      if (amount > 0) totalIncome += amount;
-      if (amount < 0) totalExpense += amount;
+      if (amount > 0) {
+        totalIncome += amount;
+      } else if (amount < 0) {
+        totalExpense += Math.abs(amount); // Store as positive value for consistency
+      }
 
       if (date && date >= monthStart && date <= now) {
-        if (amount > 0) monthIncome += amount;
-        if (amount < 0) monthExpense += amount;
+        if (amount > 0) {
+          monthIncome += amount;
+        } else if (amount < 0) {
+          monthExpense += Math.abs(amount); // Store as positive value for consistency
+        }
       }
     }
 
     return NextResponse.json({
       totalTransactions: transactions.length,
       totalIncome,
-      totalExpense,
-      net: totalIncome + totalExpense,
+      totalExpense, // Now stored as positive value
+      net: totalIncome - totalExpense, // Subtract expenses from income
       monthIncome,
-      monthExpense,
+      monthExpense, // Now stored as positive value
     });
   } catch (error) {
     console.error("Error building dashboard overview", error);

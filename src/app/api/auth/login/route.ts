@@ -65,7 +65,22 @@ export async function POST(req: NextRequest) {
     return response;
   } catch (error) {
     console.error("Login error:", error);
-    return NextResponse.json({ error: "Login failed" }, { status: 500 });
+    
+    // Provide more specific error messages
+    let errorMessage = "Login failed";
+    
+    if (error instanceof Error) {
+      // Check for MongoDB connection errors
+      if (error.message.includes("MONGODB_URI") || error.message.includes("connection")) {
+        errorMessage = "Database connection failed. Please check your MongoDB configuration.";
+      } else {
+        errorMessage = error.message || "Login failed. Please try again.";
+      }
+    }
+    
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
+
+
 

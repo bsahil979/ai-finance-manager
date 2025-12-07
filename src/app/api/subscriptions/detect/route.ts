@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db/mongo";
 import { getCurrentUser } from "@/lib/auth";
+import { generateAlerts } from "@/lib/alerts";
 
 export async function POST() {
   try {
@@ -11,16 +12,19 @@ export async function POST() {
 
     const db = await getDb();
     
-    // Get all transactions for this user
+    // Get only expense transactions (exclude income/credits)
     const transactions = await db
       .collection("transactions")
-      .find({ userId: user._id })
+      .find({ 
+        userId: user._id,
+        amount: { $lt: 0 } // Only expenses (negative amounts)
+      })
       .sort({ date: -1 })
       .toArray();
 
     if (!transactions.length) {
       return NextResponse.json(
-        { message: "No transactions found. Import some transactions first." },
+        { message: "No expense transactions found. Import some transactions first." },
         { status: 200 },
       );
     }
@@ -32,12 +36,17 @@ export async function POST() {
     >();
 
     for (const tx of transactions as Array<{ merchant?: string; rawDescription?: string; amount?: number; date?: Date | string }>) {
+      if (!tx.date) continue; // Skip transactions without dates
+      
       const merchant =
         tx.merchant ||
         tx.rawDescription ||
         "Unknown";
       const date = tx.date instanceof Date ? tx.date : new Date(tx.date);
       const amount = Number(tx.amount ?? 0);
+
+      // Double-check: only process expenses (negative amounts)
+      if (amount >= 0) continue;
 
       if (!byMerchant.has(merchant)) {
         byMerchant.set(merchant, []);
@@ -122,7 +131,7 @@ export async function POST() {
             userId: user._id,
             merchant: sub.merchant,
             amount: sub.amount,
-            currency: "USD",
+            currency: "INR",
             billingCycle: sub.billingCycle,
             nextRenewalDate: sub.nextRenewalDate,
             status: "active",
@@ -135,6 +144,11 @@ export async function POST() {
         { upsert: true },
       );
     }
+
+    // Auto-generate alerts in background (fire and forget)
+    generateAlerts(db, user._id).catch((err) => {
+      console.error("Error auto-generating alerts:", err);
+    });
 
     return NextResponse.json({
       detected: detectedSubscriptions.length,

@@ -1,13 +1,27 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db/mongo";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const db = await getDb();
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
+    const db = await getDb();
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    // Get transactions for current month
     const transactions = await db
       .collection("transactions")
-      .find({})
+      .find({
+        userId: user._id,
+        date: { $gte: startOfMonth, $lte: endOfMonth },
+        amount: { $lt: 0 }, // Only expenses
+      })
       .toArray();
 
     // Group by merchant (or description if no merchant)
@@ -15,7 +29,8 @@ export async function GET() {
 
     for (const tx of transactions as Array<{ amount?: number; merchant?: string; rawDescription?: string }>) {
       const amount = Number(tx.amount ?? 0);
-      if (amount >= 0) continue; // Only expenses (negative amounts)
+      // Amount is already filtered in query, but double-check
+      if (amount >= 0) continue;
 
       const merchant =
         tx.merchant ||

@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Finance Manager",
+  title: "LEDG",
   description:
     "Personal finance dashboard with CSV import, MongoDB, and AI-powered insights.",
 };

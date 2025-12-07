@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db/mongo";
 import { getCurrentUser } from "@/lib/auth";
+import { generateAlerts } from "@/lib/alerts";
 
 type RawCsvRow = {
   date?: string;
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
           userId: user._id,
           date: new Date(row.date),
           amount: amountNumber,
-          currency: "USD",
+          currency: "INR",
           merchant: row.merchant || undefined,
           rawDescription: row.description || "",
           type: amountNumber >= 0 ? "income" : "expense",
@@ -64,6 +65,11 @@ export async function POST(req: NextRequest) {
 
     const db = await getDb();
     const result = await db.collection("transactions").insertMany(docs);
+
+    // Auto-generate alerts in background (fire and forget)
+    generateAlerts(db, user._id).catch((err) => {
+      console.error("Error auto-generating alerts:", err);
+    });
 
     return NextResponse.json(
       { insertedCount: result.insertedCount },
